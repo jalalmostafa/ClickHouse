@@ -33,7 +33,7 @@ public:
     bool waitForReplicaToProcessAllEntries(UInt64 timeout_ms);
 
     static String enqueueQueryImpl(const ZooKeeperPtr & zookeeper, DDLLogEntry & entry,
-                                   DatabaseReplicated * const database, bool committed = false); /// NOLINT
+                                   DatabaseReplicated * const database, bool committed = false, Coordination::Requests additional_checks = {}); /// NOLINT
 
     UInt32 getLogPointer() const;
 

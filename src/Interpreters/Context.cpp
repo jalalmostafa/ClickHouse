@@ -4814,6 +4814,16 @@ StopToken Context::getDDLQueryCancellation() const
     return ddl_query_cancellation;
 }
 
+void Context::setDDLAdditionalChecksOnEnqueue(Coordination::Requests requests)
+{
+    ddl_additional_checks_on_enqueue = requests;
+}
+
+Coordination::Requests Context::getDDLAdditionalChecksOnEnqueue() const
+{
+    return ddl_additional_checks_on_enqueue;
+}
+
 
 void Context::checkTransactionsAreAllowed(bool explicit_tcl_query /* = false */) const
 {

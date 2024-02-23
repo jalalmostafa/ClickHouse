@@ -184,7 +184,7 @@ bool DatabaseReplicatedDDLWorker::waitForReplicaToProcessAllEntries(UInt64 timeo
 
 
 String DatabaseReplicatedDDLWorker::enqueueQueryImpl(const ZooKeeperPtr & zookeeper, DDLLogEntry & entry,
-                               DatabaseReplicated * const database, bool committed)
+                               DatabaseReplicated * const database, bool committed, Coordination::Requests additional_checks)
 {
     const String query_path_prefix = database->zookeeper_path + "/log/query-";
 
@@ -199,15 +199,16 @@ String DatabaseReplicatedDDLWorker::enqueueQueryImpl(const ZooKeeperPtr & zookee
         Coordination::Requests ops;
         ops.emplace_back(zkutil::makeCreateRequest(counter_lock_path, database->getFullReplicaName(), zkutil::CreateMode::Ephemeral));
         ops.emplace_back(zkutil::makeCreateRequest(counter_prefix, "", zkutil::CreateMode::EphemeralSequential));
+        ops.insert(ops.end(), additional_checks.begin(), additional_checks.end());
         Coordination::Responses res;
 
         Coordination::Error code = zookeeper->tryMulti(ops, res);
         if (code == Coordination::Error::ZOK)
         {
-            counter_path = dynamic_cast<const Coordination::CreateResponse &>(*res.back()).path_created;
+            counter_path = dynamic_cast<const Coordination::CreateResponse &>(*res[1]).path_created;
             break;
         }
-        else if (code != Coordination::Error::ZNODEEXISTS)
+        else if (res[0]->error != Coordination::Error::ZNODEEXISTS)
             zkutil::KeeperMultiException::check(code, ops, res);
     }
 
@@ -258,7 +259,7 @@ String DatabaseReplicatedDDLWorker::tryEnqueueAndExecuteEntry(DDLLogEntry & entr
         throw Exception(ErrorCodes::NOT_A_LEADER, "Cannot enqueue query on this replica, "
                         "because it has replication lag of {} queries. Try other replica.", max_log_ptr - our_log_ptr);
 
-    String entry_path = enqueueQuery(entry);
+    String entry_path = enqueueQueryImpl(zookeeper, entry, database, false, query_context->getDDLAdditionalChecksOnEnqueue());
     auto try_node = zkutil::EphemeralNodeHolder::existing(entry_path + "/try", *zookeeper);
     String entry_name = entry_path.substr(entry_path.rfind('/') + 1);
     auto task = std::make_unique<DatabaseReplicatedTask>(entry_name, entry_path, database);

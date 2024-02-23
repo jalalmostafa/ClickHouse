@@ -92,7 +92,6 @@ struct DDLLogEntry
     bool is_backup_restore = false;
     /// If present, this entry should be executed only if table with this uuid exists.
     /// Only for DatabaseReplicated.
-    //asdqwe delet dis, cancellation seems to be enough
     std::optional<UUID> parent_table_uuid;
 
     void setSettingsIfRequired(ContextPtr context);

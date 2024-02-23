@@ -42,6 +42,12 @@ namespace zkutil
     class ZooKeeper;
     using ZooKeeperPtr = std::shared_ptr<ZooKeeper>;
 }
+namespace Coordination
+{
+    struct Request;
+    using RequestPtr = std::shared_ptr<Request>;
+    using Requests = std::vector<RequestPtr>;
+}
 
 struct OvercommitTracker;
 
@@ -468,7 +474,8 @@ protected:
                                                     /// thousands of signatures.
                                                     /// And I hope it will be replaced with more common Transaction sometime.
     std::optional<UUID> parent_table_uuid; /// See comment on setParentTable().
-    StopToken ddl_query_cancellation; // See comment on setDDLQueryCancellation()
+    StopToken ddl_query_cancellation; // See comment on setDDLQueryCancellation().
+    Coordination::Requests ddl_additional_checks_on_enqueue; // See comment on setDDLAdditionalChecksOnEnqueue().
 
     MergeTreeTransactionPtr merge_tree_transaction;     /// Current transaction context. Can be inside session or query context.
                                                         /// It's shared with all children contexts.
@@ -1205,6 +1212,9 @@ public:
     ///     If the query already started execution, interruption won't happen, and the query will complete normally.
     void setDDLQueryCancellation(StopToken cancel);
     StopToken getDDLQueryCancellation() const;
+    /// Allows adding extra zookeeper operations to the transaction that enqueues a DDL query in DatabaseReplicated.
+    void setDDLAdditionalChecksOnEnqueue(Coordination::Requests requests);
+    Coordination::Requests getDDLAdditionalChecksOnEnqueue() const;
 
     void checkTransactionsAreAllowed(bool explicit_tcl_query = false) const;
     void initCurrentTransaction(MergeTreeTransactionPtr txn);
