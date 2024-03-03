@@ -12,9 +12,10 @@ from integration_test_images import IMAGES
 
 class CIStages:
     NA = "UNKNOWN"
-    BUILDS = "Builds"
-    TESTS = "Tests"
-    STANDALONE = "StandAlone"
+    BUILDS_1 = "Builds_1"
+    BUILDS_2 = "Builds_2"
+    TESTS_1 = "Tests_1"
+    TESTS_2 = "Tests_2"
 
 
 class Runners(metaclass=WithIter):
@@ -516,17 +517,27 @@ class CIConfig:
         return None
 
     def get_job_ci_stage(self, job_name: str) -> str:
-        if job_name in [JobNames.STYLE_CHECK, JobNames.FAST_TEST]:
+        if job_name in [
+            JobNames.STYLE_CHECK,
+            JobNames.FAST_TEST,
+            JobNames.JEPSEN_KEEPER,
+        ]:
+            # FIXME: we can't currently handle Jepsen in the Stage as it's job has concurrency directive
             return CIStages.NA
         stage_type = None
         if self.is_build_job(job_name):
-            stage_type = CIStages.BUILDS
-            if job_name == Build.BINARY_TIDY:
-                stage_type = CIStages.STANDALONE
+            stage_type = CIStages.BUILDS_1
+            if job_name in CI_CONFIG.get_builds_for_report(
+                JobNames.BUILD_CHECK_SPECIAL
+            ):
+                # special builds go to Build_2 stage to not delay Builds_1/Test_1
+                stage_type = CIStages.BUILDS_2
         elif self.is_docs_job(job_name):
-            stage_type = CIStages.STANDALONE
+            stage_type = CIStages.BUILDS_2
+        elif job_name == JobNames.BUILD_CHECK_SPECIAL:
+            stage_type = CIStages.TESTS_2
         elif self.is_test_job(job_name):
-            stage_type = CIStages.TESTS
+            stage_type = CIStages.TESTS_1
 
         assert stage_type, f"BUG [{job_name}]"
         return stage_type
@@ -985,6 +996,7 @@ CI_CONFIG = CIConfig(
                     include_paths=["**/*.md", "./docs", "tests/ci/docs_check.py"],
                     docker=["clickhouse/docs-builder"],
                 ),
+                run_command="docs_check.py",
             ),
         ),
         JobNames.FAST_TEST: TestConfig(
@@ -1241,7 +1253,14 @@ CI_CONFIG = CIConfig(
         JobNames.CLCIKBENCH_TEST_ARM: TestConfig(
             Build.PACKAGE_AARCH64, job_config=JobConfig(**clickbench_test_params)  # type: ignore
         ),
-        JobNames.LIBFUZZER_TEST: TestConfig(Build.FUZZERS, job_config=JobConfig(run_by_label=Labels.libFuzzer)),  # type: ignore
+        JobNames.LIBFUZZER_TEST: TestConfig(
+            Build.FUZZERS,
+            job_config=JobConfig(
+                run_by_label=Labels.libFuzzer,
+                timeout=10800,
+                run_command='libfuzzer_test_check.py "$CHECK_NAME" 10800',
+            ),
+        ),  # type: ignore
     },
 )
 CI_CONFIG.validate()

@@ -9,4 +9,4 @@ class TestCIConfig(unittest.TestCase):
         """check runner is provided w/o exception"""
         for job in JobNames:
             runner = CI_CONFIG.get_runner_type(job)
-            assert runner in Runners, f"Runner [{runner}] for [{job}] is not valid"
+            self.assertIn(runner, Runners)

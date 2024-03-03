@@ -20,27 +20,27 @@ jobs:
     outputs:
       data: ${{ steps.runconfig.outputs.CI_DATA }}
     steps:
-      # - name: DebugInfo
-      #   uses: hmarr/debug-action@a701ed95a46e6f2fb0df25e1a558c16356fae35a
+      - name: DebugInfo
+        uses: hmarr/debug-action@a701ed95a46e6f2fb0df25e1a558c16356fae35a
       - name: Check out repository code
         uses: ClickHouse/checkout@v1
         with:
           clear-repository: true # to ensure correct digests
           fetch-depth: 0 # to get version
           filter: tree:0
-      # - name: Labels check
-      #   run: |
-      #     cd "$GITHUB_WORKSPACE/tests/ci"
-      #     python3 run_check.py
-      # - name: Python unit tests
-      #   run: |
-      #     cd "$GITHUB_WORKSPACE/tests/ci"
-      #     echo "Testing the main ci directory"
-      #     python3 -m unittest discover -s . -p 'test_*.py'
-      #     for dir in *_lambda/; do
-      #       echo "Testing $dir"
-      #       python3 -m unittest discover -s "$dir" -p 'test_*.py'
-      #     done
+      - name: Labels check
+        run: |
+          cd "$GITHUB_WORKSPACE/tests/ci"
+          python3 run_check.py
+      - name: Python unit tests
+        run: |
+          cd "$GITHUB_WORKSPACE/tests/ci"
+          echo "Testing the main ci directory"
+          python3 -m unittest discover -s . -p 'test_*.py'
+          for dir in *_lambda/; do
+            echo "Testing $dir"
+            python3 -m unittest discover -s "$dir" -p 'test_*.py'
+          done
       - name: PrepareRunConfig
         id: runconfig
         run: |
@@ -55,58 +55,48 @@ jobs:
               cat  ${{ runner.temp }}/ci_run_data.json
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
-      # - name: Re-create GH statuses for skipped jobs if any
-      #   run: |
-      #       python3 "$GITHUB_WORKSPACE/tests/ci/ci.py" --infile ${{ runner.temp }}/ci_run_data.json --update-gh-statuses
-      # - name: Style check early
-      #   # hack to run style check before the docker build job if possible (style-check image not changed)
-      #   if: contains(fromJson(steps.runconfig.outputs.CI_DATA).jobs_data.jobs_to_do, 'Style check early')
-      #   run: |
-      #     DOCKER_TAG=$(echo '${{ toJson(fromJson(steps.runconfig.outputs.CI_DATA).docker_data.images) }}' | tr -d '\n')
-      #     export DOCKER_TAG=$DOCKER_TAG
-      #     python3 ./tests/ci/style_check.py --no-push
-      #     python3 "$GITHUB_WORKSPACE/tests/ci/ci.py" --infile ${{ runner.temp }}/ci_run_data.json --post --job-name 'Style check'
+      - name: Re-create GH statuses for skipped jobs if any
+        run: |
+            python3 "$GITHUB_WORKSPACE/tests/ci/ci.py" --infile ${{ runner.temp }}/ci_run_data.json --update-gh-statuses
+      - name: Style check early
+        # hack to run style check before the docker build job if possible (style-check image not changed)
+        if: contains(fromJson(steps.runconfig.outputs.CI_DATA).jobs_data.jobs_to_do, 'Style check early')
+        run: |
+          DOCKER_TAG=$(echo '${{ toJson(fromJson(steps.runconfig.outputs.CI_DATA).docker_data.images) }}' | tr -d '\n')
+          export DOCKER_TAG=$DOCKER_TAG
+          python3 ./tests/ci/style_check.py --no-push
+          python3 "$GITHUB_WORKSPACE/tests/ci/ci.py" --infile ${{ runner.temp }}/ci_run_data.json --post --job-name 'Style check'
   BuildDockers:
     needs: [RunConfig]
     if: ${{ !failure() && !cancelled() && toJson(fromJson(needs.RunConfig.outputs.data).docker_data.missing_multi) != '[]' }}
     uses: ./.github/workflows/reusable_docker.yml
     with:
       data: ${{ needs.RunConfig.outputs.data }}
-  # StyleCheck:
-  #   needs: [RunConfig, BuildDockers]
-  #   if: ${{ !failure() && !cancelled() }}
-  #   uses: ./.github/workflows/reusable_test.yml
-  #   with:
-  #     test_name: Style check
-  #     runner_type: style-checker
-  #     run_command: |
-  #         python3 style_check.py
-  #     data: ${{ needs.RunConfig.outputs.data }}
-  #   secrets:
-  #     secret_envs: |
-  #       ROBOT_CLICKHOUSE_SSH_KEY<<RCSK
-  #       ${{secrets.ROBOT_CLICKHOUSE_SSH_KEY}}
-  #       RCSK
-  # DocsCheck:
-  #   needs: [RunConfig, StyleCheck]
-  #   if: ${{ !failure() && !cancelled() }}
-  #   uses: ./.github/workflows/reusable_test.yml
-  #   with:
-  #     test_name: Docs check
-  #     runner_type: func-tester-aarch64
-  #     data: ${{ needs.RunConfig.outputs.data }}
-  #     run_command: |
-  #       python3 docs_check.py
-  # FastTest:
-  #   needs: [RunConfig, StyleCheck]
-  #   if: ${{ !failure() && !cancelled() }}
-  #   uses: ./.github/workflows/reusable_test.yml
-  #   with:
-  #     test_name: Fast test
-  #     runner_type: builder
-  #     data: ${{ needs.RunConfig.outputs.data }}
-  #     run_command: |
-  #         python3 fast_test_check.py
+  StyleCheck:
+    needs: [RunConfig, BuildDockers]
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      test_name: Style check
+      runner_type: style-checker
+      run_command: |
+          python3 style_check.py
+      data: ${{ needs.RunConfig.outputs.data }}
+    secrets:
+      secret_envs: |
+        ROBOT_CLICKHOUSE_SSH_KEY<<RCSK
+        ${{secrets.ROBOT_CLICKHOUSE_SSH_KEY}}
+        RCSK
+  FastTest:
+    needs: [RunConfig, StyleCheck]
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).jobs_data.jobs_to_do, 'Fast test') }}
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      test_name: Fast test
+      runner_type: builder
+      data: ${{ needs.RunConfig.outputs.data }}
+      run_command: |
+          python3 fast_test_check.py
 
   ################################# Stage Pre #################################
   # TODO: for jobs chain that we want to run first, e.g. job failed in prev CI run
@@ -137,36 +127,42 @@ jobs:
   ################################# Stage Main #################################
   # for main CI chain
   #
-  # Builds:
-  #   needs: [RunConfig]
-  #   if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Builds') }}
-  #   uses: ./.github/workflows/reusable_stage.yml
-  #   with:
-  #     stage: Builds
-  #     data: ${{ needs.RunConfig.outputs.data }}
-  Tests:
-    needs: [RunConfig]
-    # needs: [RunConfig, Builds]
-    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Tests') }}
+  Builds_1:
+    needs: [RunConfig, FastTest]
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Builds_1') }}
+    uses: ./.github/workflows/reusable_stage.yml
+    with:
+      stage: Builds_1
+      data: ${{ needs.RunConfig.outputs.data }}
+  Tests_1:
+    needs: [RunConfig, Builds_1]
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Tests_1') }}
     # using callable wf (reusable_stage.yml) allows to group all nested jobs under "Tests" job
     uses: ./.github/workflows/reusable_stage.yml
     with:
-      stage: Tests
+      stage: Tests_1
       data: ${{ needs.RunConfig.outputs.data }}
-  StandAlone:
-    needs: [RunConfig]
-    # needs: [RunConfig, Builds]
-    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'StandAlone') }}
+  Builds_2:
+    needs: [RunConfig, Builds_1]
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Builds_2') }}
     uses: ./.github/workflows/reusable_stage.yml
     with:
-      stage: StandAlone
+      stage: Builds_2
+      data: ${{ needs.RunConfig.outputs.data }}
+  Tests_2:
+    needs: [RunConfig, Builds_2]
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).stages_data.stages_to_do, 'Tests_2') }}
+    # using callable wf (reusable_stage.yml) allows to group all nested jobs under "Tests" job
+    uses: ./.github/workflows/reusable_stage.yml
+    with:
+      stage: Tests_2
       data: ${{ needs.RunConfig.outputs.data }}
 
   ################################# Stage Final #################################
   #
   FinishCheck:
     if: ${{ !failure() && !cancelled() }}
-    needs: [Tests, StandAlone]
+    needs: [Tests_1, Tests_2]
     runs-on: [self-hosted, style-checker]
     steps:
       - name: Check out repository code
@@ -177,89 +173,21 @@ jobs:
           python3 finish_check.py
 
 
-
-# FIXME: builds look working continue with test jobs:
-
-# ############################################################################################
-# ##################################### BUILD REPORTER #######################################
-# ############################################################################################
-#   BuilderReport:
-#     # run report check for failed builds to indicate the CI error
-#     if: ${{ !cancelled() }}
-#     needs:
-#       - RunConfig
-#       - BuilderBinRelease
-#       - BuilderDebAarch64
-#       - BuilderDebAsan
-#       - BuilderDebDebug
-#       - BuilderDebMsan
-#       - BuilderDebRelease
-#       - BuilderDebReleaseCoverage
-#       - BuilderDebTsan
-#       - BuilderDebUBsan
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: ClickHouse build check
-#       runner_type: style-checker
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       additional_envs: |
-#         NEEDS_DATA<<NDENV
-#         ${{ toJSON(needs) }}
-#         NDENV
-#       run_command: |
-#         python3 build_report_check.py "$CHECK_NAME"
-#   BuilderSpecialReport:
-#     # run report check for failed builds to indicate the CI error
-#     if: ${{ !cancelled() }}
-#     needs:
-#       - RunConfig
-#       - BuilderBinAarch64
-#       - BuilderBinDarwin
-#       - BuilderBinDarwinAarch64
-#       - BuilderBinFreeBSD
-#       - BuilderBinPPC64
-#       - BuilderBinRISCV64
-#       - BuilderBinS390X
-#       - BuilderBinAmd64Compat
-#       - BuilderBinAarch64V80Compat
-#       - BuilderBinClangTidy
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: ClickHouse special build check
-#       runner_type: style-checker
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       additional_envs: |
-#         NEEDS_DATA<<NDENV
-#         ${{ toJSON(needs) }}
-#         NDENV
-#       run_command: |
-#         python3 build_report_check.py "$CHECK_NAME"
-
-
-
-# #############################################################################################
-# ###################################### JEPSEN TESTS #########################################
-# #############################################################################################
-#   # This is special test NOT INCLUDED in FinishCheck
-#   # When it's skipped, all dependent tasks will be skipped too.
-#   # DO NOT add it there
-#   Jepsen:
-#     # we need concurrency as the job uses dedicated instances in the cloud
-#     concurrency:
-#       group: jepsen
-#     if: ${{ !failure() && !cancelled() }}
-#     needs: [RunConfig, BuilderBinRelease]
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: ClickHouse Keeper Jepsen
-#       runner_type: style-checker
-#       data: ${{ needs.RunConfig.outputs.data }}
-# #############################################################################################
-# ####################################### libFuzzer ###########################################
-# #############################################################################################
-#   libFuzzer:
-#     if: ${{ !failure() && !cancelled() }}
-#     needs: [RunConfig, StyleCheck]
-#     uses: ./.github/workflows/libfuzzer.yml
-#     with:
-#       data: ${{ needs.RunConfig.outputs.data }}
+#############################################################################################
+###################################### JEPSEN TESTS #########################################
+#############################################################################################
+  # This is special test NOT INCLUDED in FinishCheck
+  # When it's skipped, all dependent tasks will be skipped too.
+  # DO NOT add it there
+  Jepsen:
+    # we need concurrency as the job uses dedicated instances in the cloud
+    concurrency:
+      group: jepsen
+    if: ${{ !failure() && !cancelled() && contains(fromJson(needs.RunConfig.outputs.data).jobs_data.jobs_to_do, 'ClickHouse Keeper Jepsen') }}
+    # jepsen needs binary_release build which is in Builds_2
+    needs: [RunConfig, Builds_2]
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      test_name: ClickHouse Keeper Jepsen
+      runner_type: style-checker
+      data: ${{ needs.RunConfig.outputs.data }}
