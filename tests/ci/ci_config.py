@@ -481,6 +481,19 @@ sql_test_params = {
     "run_command": "sqltest.py",
     "timeout": 10800,
 }
+clickbench_test_params = {
+    "digest": DigestConfig(
+        include_paths=[
+            "tests/ci/clickbench.py",
+        ],
+        docker=["clickhouse/clickbench"],
+    ),
+    "run_command": 'clickbench.py "$CHECK_NAME"',
+}
+install_test_params = {
+    "digest": install_check_digest,
+    "run_command": 'install_check.py "$CHECK_NAME"',
+}
 
 
 @dataclass
@@ -1001,10 +1014,10 @@ CI_CONFIG = CIConfig(
     },
     test_configs={
         JobNames.INSTALL_TEST_AMD: TestConfig(
-            Build.PACKAGE_RELEASE, job_config=JobConfig(digest=install_check_digest)
+            Build.PACKAGE_RELEASE, job_config=JobConfig(**install_test_params)  # type: ignore
         ),
         JobNames.INSTALL_TEST_ARM: TestConfig(
-            Build.PACKAGE_AARCH64, job_config=JobConfig(digest=install_check_digest)
+            Build.PACKAGE_AARCH64, job_config=JobConfig(**install_test_params)  # type: ignore
         ),
         JobNames.STATEFUL_TEST_ASAN: TestConfig(
             Build.PACKAGE_ASAN, job_config=JobConfig(**stateful_test_common_params)  # type: ignore
@@ -1222,8 +1235,12 @@ CI_CONFIG = CIConfig(
         JobNames.SQLTEST: TestConfig(
             Build.PACKAGE_RELEASE, job_config=JobConfig(**sql_test_params)  # type: ignore
         ),
-        JobNames.CLCIKBENCH_TEST: TestConfig(Build.PACKAGE_RELEASE),
-        JobNames.CLCIKBENCH_TEST_ARM: TestConfig(Build.PACKAGE_AARCH64),
+        JobNames.CLCIKBENCH_TEST: TestConfig(
+            Build.PACKAGE_RELEASE, job_config=JobConfig(**clickbench_test_params)  # type: ignore
+        ),
+        JobNames.CLCIKBENCH_TEST_ARM: TestConfig(
+            Build.PACKAGE_AARCH64, job_config=JobConfig(**clickbench_test_params)  # type: ignore
+        ),
         JobNames.LIBFUZZER_TEST: TestConfig(Build.FUZZERS, job_config=JobConfig(run_by_label=Labels.libFuzzer)),  # type: ignore
     },
 )

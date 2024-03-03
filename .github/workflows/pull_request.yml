@@ -234,53 +234,7 @@ jobs:
 #         NDENV
 #       run_command: |
 #         python3 build_report_check.py "$CHECK_NAME"
-# ############################################################################################
-# #################################### INSTALL PACKAGES ######################################
-# ############################################################################################
-#   InstallPackagesTestRelease:
-#     needs: [RunConfig, BuilderDebRelease]
-#     if: ${{ !failure() && !cancelled() }}
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: Install packages (amd64)
-#       runner_type: style-checker
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       run_command: |
-#         python3 install_check.py "$CHECK_NAME"
-#   InstallPackagesTestAarch64:
-#     needs: [RunConfig, BuilderDebAarch64]
-#     if: ${{ !failure() && !cancelled() }}
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: Install packages (arm64)
-#       runner_type: style-checker-aarch64
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       run_command: |
-#         python3 install_check.py "$CHECK_NAME"
 
-# ##############################################################################################
-# ########################### ClickBench #######################################################
-# ##############################################################################################
-#   ClickBenchAMD64:
-#     needs: [RunConfig, BuilderDebRelease]
-#     if: ${{ !failure() && !cancelled() }}
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: ClickBench (amd64)
-#       runner_type: func-tester
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       run_command: |
-#         python3 clickbench.py "$CHECK_NAME"
-#   ClickBenchAarch64:
-#     needs: [RunConfig, BuilderDebAarch64]
-#     if: ${{ !failure() && !cancelled() }}
-#     uses: ./.github/workflows/reusable_test.yml
-#     with:
-#       test_name: ClickBench (aarch64)
-#       runner_type: func-tester-aarch64
-#       data: ${{ needs.RunConfig.outputs.data }}
-#       run_command: |
-#         python3 clickbench.py "$CHECK_NAME"
 
 
 # #############################################################################################
