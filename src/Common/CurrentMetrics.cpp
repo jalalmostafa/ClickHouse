@@ -264,7 +264,18 @@
     M(RefreshingViews, "Number of materialized views currently executing a refresh") \
     M(StorageBufferFlushThreads, "Number of threads for background flushes in StorageBuffer") \
     M(StorageBufferFlushThreadsActive, "Number of threads for background flushes in StorageBuffer running a task") \
-    M(StorageBufferFlushThreadsScheduled, "Number of queued or active threads for background flushes in StorageBuffer")
+    M(StorageBufferFlushThreadsScheduled, "Number of queued or active threads for background flushes in StorageBuffer") \
+    \
+    M(StorageConnectionsStored, "Total count of sessions stored in the session pool for storages") \
+    M(StorageConnectionsTotal, "Total count of all sessions: stored in the pool and actively used right now for storages") \
+    \
+    M(DiskConnectionsStored, "Total count of sessions stored in the session pool for disks") \
+    M(DiskConnectionsTotal, "Total count of all sessions: stored in the pool and actively used right now for disks") \
+    \
+    M(HTTPConnectionsStored, "Total count of sessions stored in the session pool for http hosts") \
+    M(HTTPConnectionsTotal, "Total count of all sessions: stored in the pool and actively used right now for http hosts") \
+    \
+    M(AddressesActive, "Total count of addresses which are used for creation connections for connection pools") \
 
 #ifdef APPLY_FOR_EXTERNAL_METRICS
     #define APPLY_FOR_METRICS(M) APPLY_FOR_BUILTIN_METRICS(M) APPLY_FOR_EXTERNAL_METRICS(M)
